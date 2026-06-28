@@ -5,95 +5,81 @@
 
 ---
 
-## Project Overview
+## Overview
 
-This project investigates whether sector rotation patterns — the tendency for defensive 
-sectors to outperform cyclicals ahead of recessions — can be used to predict economic 
-regime changes. Using 26 years of S&P 500 sector ETF price data combined with Federal 
-Reserve macroeconomic indicators, I designed a relational SQLite database, engineered 
-predictive features using SQL window functions and CTEs, and trained a logistic regression 
-model to classify recession vs non-recession periods.
+This project looks at whether sector rotation patterns can be used to predict recessions. The idea is that investors tend to move money from cyclical sectors like technology and financials into defensive sectors like utilities and consumer staples when they sense a downturn coming. If that signal is consistent enough, it should show up in the data before a recession officially begins.
+
+I pulled 26 years of S&P 500 sector ETF price data from Yahoo Finance, combined it with Federal Reserve macroeconomic indicators via the FRED API, and stored everything in a normalised relational SQLite database. From there I used SQL to engineer the features and built a logistic regression model to classify recession versus non-recession periods.
 
 ---
 
-## The Core Question
+## The Question
 
-**Can the relative performance of defensive versus cyclical sectors predict whether the 
-economy is heading into recession — and does this signal hold across different types 
-of economic downturns?**
+Can the relative performance of defensive versus cyclical sectors predict whether the economy is heading into recession, and does this signal hold across different types of downturns?
 
 ---
 
-## Key Findings
+## What I Found
 
-### 1. Defensive Sectors Consistently Outperform Cyclicals During Recessions
-Across all three recession periods, a clear rotation pattern emerged — but with important 
-differences by crisis type:
+### Defensive sectors rotate ahead of recessions, but each crisis is different
 
-- **Dot-Com Recession (2001):** Technology (XLK) lost over 80% of its value while 
-  defensive sectors held close to their starting levels — a textbook sector rotation signal
-- **Global Financial Crisis (2008):** The most severe drawdown in the dataset. All sectors 
-  fell simultaneously, but defensives fell less and recovered faster. XLF (Financials) 
-  dropped to 40% of its pre-crisis value — the worst performance of any sector in any recession
-- **COVID-19 Recession (2020):** The shortest recession in the dataset (2 months) triggered 
-  a sharp universal crash followed by the fastest recovery on record, with technology 
-  sectors inverting the usual defensive outperformance pattern entirely
+The pattern showed up across all three recessions in the dataset but each one played out differently.
 
-### 2. The Logistic Regression Model Successfully Detected Structural Recessions
-A logistic regression model trained on four features — sector rotation signal, yield curve, 
-unemployment, and Fed funds rate — produced the following results:
+During the dot-com crash, technology (XLK) lost over 80% of its value while defensives barely moved. That is the textbook rotation signal working exactly as expected. The 2008 financial crisis was more severe with everything falling simultaneously, but defensives held up better and recovered faster. XLF (Financials) was the standout casualty, dropping to 40% of its pre-crisis value and never fully recovering even by 2026.
+
+COVID was the outlier. It lasted just two months officially, recovery was almost immediate, and technology sectors massively outperformed defensives in the aftermath. The usual recession playbook did not apply.
+
+### The model correctly identified the two structural recessions
+
+A logistic regression model trained on sector rotation signals, the yield curve, unemployment, and the Fed funds rate produced clear signals for the dot-com and 2008 recessions, with predicted probability staying above 0.5 throughout both periods. The 2008 signal was the strongest, peaking above 0.7 at the height of the crisis.
 
 | Recession | Model Signal | Notes |
 |---|---|---|
-| Dot-Com (2001) | ✅ Detected | Probability above 0.5 throughout 2000–2003 |
-| Financial Crisis (2008) | ✅ Detected | Strongest signal, probability peaked above 0.7 |
-| COVID-19 (2020) | ❌ Missed | Probability near historic low at onset |
+| Dot-Com (2001) | Detected | Probability above 0.5 throughout 2000 to 2003 |
+| Financial Crisis (2008) | Detected | Strongest signal, probability peaked above 0.7 |
+| COVID-19 (2020) | Missed | Probability near historic low at onset |
 
-### 3. COVID-19 Was Fundamentally Unpredictable From Market Signals
-The model's failure to detect COVID is itself a finding — not a flaw. The pandemic was 
-an exogenous shock with no macroeconomic precursors. The yield curve was not inverted, 
-unemployment was at historic lows, and cyclicals were outperforming defensives in the 
-months before the crash. No model trained on structural recession patterns could have 
-anticipated it.
+### Missing COVID is a finding, not a flaw
 
-### 4. The Model Flags Rising Recession Risk in 2024–2026
-The predicted recession probability has risen from near zero in 2021 back toward 0.5 
-by mid-2026, driven by rising unemployment and yield curve movements — an interesting 
-live signal that warrants monitoring.
+The model had no chance of detecting COVID because there were no precursors. The yield curve was not inverted, unemployment was at historic lows, and cyclicals were outperforming defensives in the months before the crash. It was an exogenous shock and no model trained on structural recession patterns could have anticipated it. That distinction matters when interpreting any recession prediction model.
 
-### 5. Long-Run Sector Performance (2000–2026)
+### The model is currently signalling rising risk
+
+By mid-2026 the predicted recession probability has climbed back toward 0.5 after sitting near zero following the COVID recovery. Rising unemployment and yield curve movements are driving the signal, which is worth monitoring.
+
+### Long run sector performance since 2000
+
+Cyclical sectors dominated long run returns despite their recession vulnerability. Technology was the worst performer through the dot-com era but became the strongest over the full 26 year period. Financials were the clear underperformer, weighed down by the 2008 collapse they never fully recovered from.
+
 | Sector | Category | Avg Monthly Return |
 |---|---|---|
-| XLC (Communication Services) | Cyclical | 1.122% |
-| XLE (Energy) | Cyclical | 0.967% |
-| XLK (Technology) | Cyclical | 0.953% |
-| XLY (Consumer Discretionary) | Cyclical | 0.929% |
-| XLF (Financials) | Cyclical | Lowest — never fully recovered from 2008 |
+| XLC Communication Services | Cyclical | 1.122% |
+| XLE Energy | Cyclical | 0.967% |
+| XLK Technology | Cyclical | 0.953% |
+| XLY Consumer Discretionary | Cyclical | 0.929% |
+| XLF Financials | Cyclical | Lowest across all sectors |
 
 ---
 
-## Technical Implementation
+## How It Was Built
 
-### Database Design
-Rather than a single flat table, this project uses a normalised relational schema 
-with four linked tables:
+### Database design
+
+Instead of dumping everything into one flat table I designed a normalised schema with four linked tables. This made the SQL analysis cleaner and more realistic as a structure you would actually see in a production environment.
 
 ```
-sectors          prices              indicators          recessions
----------        --------            ----------          ----------
-sector_id  ←─── sector_id           date                recession_id
-ticker           date                fed_funds_rate      start_date
-name             close               yield_curve         end_date
-category         volume              unemployment        label
-                 return_1m           cpi
+sectors       prices          indicators        recessions
+--------      --------        ----------        ----------
+sector_id     sector_id       date              recession_id
+ticker        date            fed_funds_rate    start_date
+name          close           yield_curve       end_date
+category      volume          unemployment      label
+              return_1m       cpi
 ```
 
-### Feature Engineering in SQL
-The core analytical dataset was built entirely in SQL using:
-- **CTEs** to calculate average monthly returns by sector category
-- **CASE/PIVOT logic** to create cyclical vs defensive return columns
-- **Subquery existence checks** to label recession months
-- **Three-table JOINs** across prices, sectors, and indicators
+### Feature engineering in SQL
+
+The core analytical dataset was built entirely in SQL using CTEs to calculate average monthly returns by sector category, CASE logic to pivot cyclical and defensive returns into separate columns, subquery existence checks to label recession months, and three table JOINs across prices, sectors, and indicators.
 
 ```sql
 WITH monthly_category_returns AS (
@@ -110,24 +96,11 @@ category_pivot AS (
     FROM monthly_category_returns
     GROUP BY date
 )
-...
 ```
 
-### Model Architecture
-- **Algorithm:** Logistic Regression with balanced class weights (scikit-learn)
-- **Features:** Rotation signal, yield curve, unemployment rate, Fed funds rate
-- **Scaling:** StandardScaler applied before training
-- **Train/test split:** Time-based — trained on 2000–2018, tested on 2019–2026
-- **Key limitation:** Only 31 recession months in 316 total observations creates 
-  class imbalance, addressed via `class_weight="balanced"`
+### Model
 
-### Environment Notes
-- Built on Python 3.11 installed via Homebrew on macOS (system Python 3.9 has 
-  a known broken pip on Apple Developer Command Line Tools)
-- SQLite absolute paths resolved using `os.path.expanduser()` to avoid 
-  notebook-relative path issues
-- yfinance multi-level column output handled by explicit column selection 
-  and hardcoded sector IDs to avoid foreign key mapping errors
+Logistic regression with balanced class weights via scikit-learn. Features were scaled using StandardScaler before training. The train and test split was time based, training on 2000 to 2018 and testing on 2019 to 2026, to avoid data leakage. Class imbalance was handled with balanced class weights given only 31 recession months out of 316 total observations.
 
 ---
 
@@ -135,19 +108,19 @@ category_pivot AS (
 
 ```
 sector-rotation-analysis/
-├── data/                              # SQLite database and saved charts
+├── data/                              
 │   ├── sector_data.db
 │   ├── chart_sector_performance.png
 │   ├── chart_recession_comparison.png
 │   ├── chart_model_evaluation.png
 │   └── chart_recession_probability.png
 ├── notebooks/
-│   ├── 01_verify_data.ipynb           # SQL verification and multi-table joins
-│   ├── 02_exploratory_analysis.ipynb  # Sector performance visualisation
-│   └── 03_feature_engineering.ipynb   # SQL feature engineering + ML model
+│   ├── 01_verify_data.ipynb           
+│   ├── 02_exploratory_analysis.ipynb  
+│   └── 03_feature_engineering.ipynb   
 ├── scripts/
-│   ├── create_schema.py               # Relational database schema definition
-│   └── ingest.py                      # Data pipeline (yfinance + FRED API)
+│   ├── create_schema.py               
+│   └── ingest.py                      
 ├── requirements.txt
 └── README.md
 ```
@@ -156,10 +129,9 @@ sector-rotation-analysis/
 
 ## Data Sources
 
-**Yahoo Finance** via `yfinance` — 11 S&P 500 sector ETFs from 2000 to 2026:
-XLF, XLE, XLK, XLY, XLI, XLB, XLV, XLP, XLU, XLRE, XLC
+Yahoo Finance via yfinance for 11 S&P 500 sector ETFs from 2000 to 2026: XLF, XLE, XLK, XLY, XLI, XLB, XLV, XLP, XLU, XLRE, XLC
 
-**FRED API** — Federal Reserve Economic Data:
+FRED API for macroeconomic indicators:
 
 | Series ID | Description |
 |---|---|
@@ -169,34 +141,26 @@ XLF, XLE, XLK, XLY, XLI, XLB, XLV, XLP, XLU, XLRE, XLC
 | GS10 | 10-Year Treasury Yield |
 | GS2 | 2-Year Treasury Yield |
 
-**NBER** — Official US recession dates (manually encoded)
+NBER official US recession dates encoded manually.
 
 ---
 
 ## How to Run
 
 ```bash
-# Clone the repo
-git clone https://github.com/YOURUSERNAME/sector-rotation-analysis.git
+git clone https://github.com/killkita/sector-rotation-analysis.git
 cd sector-rotation-analysis
 
-# Create virtual environment using Python 3.11
 /opt/homebrew/bin/python3.11 -m venv venv
 source venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
 
-# Add your FRED API key
 echo "FRED_API_KEY=your_key_here" > .env
 
-# Build the database schema
 python scripts/create_schema.py
-
-# Run the data pipeline
 python scripts/ingest.py
 
-# Open notebooks in order
 jupyter notebook
 ```
 
@@ -204,18 +168,11 @@ jupyter notebook
 
 ## Limitations
 
-- Only three recession periods in the dataset limits statistical power
-- COVID-19 demonstrates that exogenous shock recessions are inherently 
-  unpredictable from market signals alone
-- Logistic regression assumes linear relationships between features and 
-  recession probability — a more flexible model (Random Forest, XGBoost) 
-  may improve detection
-- XLRE and XLC have shorter histories (post-2015 and post-2018 respectively) 
-  which creates unequal weighting in the rotation signal calculation
+Only three recession periods in the dataset limits the statistical power of the model. Logistic regression assumes linear relationships between features and outcomes so a more flexible model like Random Forest or XGBoost would likely improve detection of complex patterns. XLRE and XLC have shorter histories which creates slight unequal weighting in the rotation signal. And as COVID demonstrated, no model trained on structural recessions can anticipate exogenous shocks.
 
 ---
 
 ## Author
 
-**kita** | ~ Data Analyst experimenting with Python ~ 
+**kita** | ~ Aspiring data analyst experimenting with Python ~
 [GitHub](https://github.com/killkita)
